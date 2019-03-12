@@ -1,3 +1,4 @@
+from math import log10
 import os
 import argparse
 import logging
@@ -226,15 +227,28 @@ def one_hot(x, K):
     return np.array(x[:, None] == np.arange(K)[None, :], dtype=int)
 
 
-def accuracy(model, dataset_loader):
+def accuracy(model, dataset_loader,add_noise=False):
     total_correct = 0
+    psnrs = []
     for x, y in dataset_loader:
-        x = x.to(device)
+        x_origin = x
         y = one_hot(np.array(y.numpy()), 10)
-
+        if add_noise:
+            noise = torch.randn(x.shape)
+            x_noise = x + noise
+            x = x_noise
+        x = x.to(device)
         target_class = np.argmax(y, axis=1)
         predicted_class = np.argmax(model(x).cpu().detach().numpy(), axis=1)
         total_correct += np.sum(predicted_class == target_class)
+        if add_noise:
+            for i in range(x.shape[0]):
+                mse = (x_origin[i] - x_noise[i]).view(-1).norm().item()    /   np.prod(x_origin[i].numpy().shape)
+                psnr = 10 * log10(x_origin[i].max()**2 / mse)
+                psnrs.append(psnr)
+                pass
+    if add_noise:
+        print(psnrs[1:10])
     return total_correct / len(dataset_loader.dataset)
 
 
@@ -363,7 +377,7 @@ if __name__ == '__main__':
         if itr % batches_per_epoch == 0:
             with torch.no_grad():
                 train_acc = accuracy(model, train_eval_loader)
-                val_acc = accuracy(model, test_loader)
+                val_acc = accuracy(model, test_loader,True)
                 if val_acc > best_acc:
                     torch.save({'state_dict': model.state_dict(), 'args': args}, os.path.join(args.save, 'model.pth'))
                     best_acc = val_acc
