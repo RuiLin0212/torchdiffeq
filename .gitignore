@@ -2,3 +2,10 @@
 .installed.cfg
 *.egg
 *__pycache__*
+*.pth
+*log
+examples/.data/
+examples/experiment1/
+examples/rui/
+examples/ruii/
+
