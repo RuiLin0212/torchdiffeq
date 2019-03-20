@@ -9,6 +9,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
+import random
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--network', type=str, choices=['resnet', 'odenet'], default='odenet')
@@ -229,15 +230,19 @@ def one_hot(x, K):
 
 def accuracy(model, dataset_loader,add_noise=False):
     total_correct = 0
-    psnrs = []
+    psnrs = [] # a vetor to store the PSNR
     for x, y in dataset_loader:
-        x_origin = x
+        x_origin = x # clean data
         y = one_hot(np.array(y.numpy()), 10)
         if add_noise:
-            noise = torch.randn(x.shape)
-            x_noise = x + noise
-            x = x_noise
-        x = x.to(device)
+            random.seed(100)
+            noise = torch.randn(x.shape) # generate the noise according to the size of x
+            sigma = torch.tensor(0.08) # change the value of sigma to change the noise
+            sigma = sigma.float() # change the type of sigma to allow the computation
+            noise = torch.mul(noise, sigma)
+            x_noise = x + noise # add noise to clean data
+            x = x_noise # give the value of x_noise to x
+        x = x.to(device) # send the data to GPU
         target_class = np.argmax(y, axis=1)
         predicted_class = np.argmax(model(x).cpu().detach().numpy(), axis=1)
         total_correct += np.sum(predicted_class == target_class)
@@ -248,7 +253,7 @@ def accuracy(model, dataset_loader,add_noise=False):
                 psnrs.append(psnr)
                 pass
     if add_noise:
-        print(psnrs[1:10])
+        print(psnr)
     return total_correct / len(dataset_loader.dataset)
 
 
@@ -387,4 +392,5 @@ if __name__ == '__main__':
                         itr // batches_per_epoch, batch_time_meter.val, batch_time_meter.avg, f_nfe_meter.avg,
                         b_nfe_meter.avg, train_acc, val_acc
                     )
-                )
+
+)
